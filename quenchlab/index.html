@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>QuenchLab — Heat Treatment Simulator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg: #14181c;
+    --panel: #1c2227;
+    --panel-border: #2b3238;
+    --text: #e7ecef;
+    --muted: #8b96a1;
+    --accent: #ff7a45;      /* quench-orange */
+    --accent-2: #4fb0ff;    /* cool blue for slow-cool contrast */
+    --martensite: #ff5d5d;
+    --bainite: #ffb454;
+    --pearlite: #7fd68a;
+    --ferrite: #6fa8ff;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 28px 20px 60px;
+  }
+  h1{
+    font-size: 1.6rem;
+    margin: 0 0 4px;
+    letter-spacing: 0.5px;
+  }
+  h1 span{ color: var(--accent); }
+  .subtitle{ color: var(--muted); margin: 0 0 24px; font-size: 0.95rem; }
+  .layout{
+    display:grid;
+    grid-template-columns: 340px 1fr;
+    gap: 20px;
+    max-width: 1180px;
+    margin: 0 auto;
+  }
+  @media (max-width: 850px){ .layout{ grid-template-columns: 1fr; } }
+  .panel{
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 20px;
+  }
+  label{ display:block; font-size:0.8rem; color: var(--muted); margin-bottom:6px; text-transform: uppercase; letter-spacing: 0.5px;}
+  select, input[type=range]{ width:100%; }
+  select{
+    background: #0f1316; color: var(--text); border:1px solid var(--panel-border);
+    padding: 8px; border-radius: 6px; font-size: 0.95rem; margin-bottom: 20px;
+  }
+  .control-group{ margin-bottom: 22px; }
+  .rate-readout{
+    display:flex; justify-content: space-between; align-items:baseline; margin-bottom: 6px;
+  }
+  .rate-readout .value{ font-size: 1.3rem; color: var(--accent); font-weight:600; }
+  .rate-readout .label{ font-size: 0.8rem; color: var(--muted); text-transform: uppercase; letter-spacing:0.5px; }
+  .presets{ display:flex; gap:6px; flex-wrap:wrap; margin-top:10px; }
+  .preset-btn{
+    background: #0f1316; border:1px solid var(--panel-border); color: var(--text);
+    padding: 6px 10px; border-radius: 999px; font-size: 0.75rem; cursor:pointer;
+  }
+  .preset-btn:hover{ border-color: var(--accent); color: var(--accent); }
+  .hardness-readout{
+    text-align:center; padding: 18px 0 6px;
+  }
+  .hardness-readout .big{ font-size: 3.2rem; font-weight:700; color:var(--accent); line-height:1; }
+  .hardness-readout .unit{ color: var(--muted); font-size:0.85rem; }
+  .phase-bars{ margin-top: 18px; }
+  .phase-row{ display:flex; align-items:center; gap:10px; margin-bottom:8px; font-size:0.85rem; }
+  .swatch{ width:12px; height:12px; border-radius:3px; flex-shrink:0; }
+  .phase-name{ width:80px; color:var(--muted); }
+  .bar-track{ flex:1; background:#0f1316; border-radius:4px; height:10px; overflow:hidden; }
+  .bar-fill{ height:100%; border-radius:4px; transition: width 0.25s ease; }
+  .phase-pct{ width:42px; text-align:right; color: var(--text); }
+  canvas{ max-height: 380px; }
+  .caption{ font-size:0.78rem; color: var(--muted); margin-top:14px; line-height:1.5; }
+  .footer-note{
+    max-width:1180px; margin: 30px auto 0; color: var(--muted); font-size: 0.78rem; line-height:1.6;
+    border-top: 1px solid var(--panel-border); padding-top: 16px;
+  }
+</style>
+</head>
+<body>
+
+<h1><span>Quench</span>Lab — Heat Treatment Simulator</h1>
+<p class="subtitle">Pick an alloy, set a cooling rate, and see the predicted phase mix and hardness — grounded in metallurgical thermodynamics &amp; kinetics.</p>
+
+<div class="layout">
+  <div class="panel">
+    <div class="control-group">
+      <label for="alloySelect">Alloy</label>
+      <select id="alloySelect"></select>
+    </div>
+
+    <div class="control-group">
+      <div class="rate-readout">
+        <span class="label">Cooling rate</span>
+        <span class="value"><span id="rateValue">10</span> K/s</span>
+      </div>
+      <input type="range" id="rateSlider" min="-1" max="3.3" step="0.02" value="1">
+      <div class="presets">
+        <button class="preset-btn" data-rate="1">Furnace cool</button>
+        <button class="preset-btn" data-rate="10">Air cool</button>
+        <button class="preset-btn" data-rate="80">Oil quench</button>
+        <button class="preset-btn" data-rate="400">Water quench</button>
+      </div>
+    </div>
+
+    <div class="hardness-readout">
+      <div class="big"><span id="hardnessValue">--</span></div>
+      <div class="unit">Predicted hardness (HRC)</div>
+    </div>
+
+    <div class="phase-bars" id="phaseBars"></div>
+
+    <p class="caption">
+      Model: each phase (martensite, bainite, pearlite, ferrite) has a characteristic
+      cooling-rate "sweet spot" set by the alloy's critical cooling rate (CCR). Phase
+      fractions are Gaussian weights in log-cooling-rate space, normalized to 100%.
+      This is a simplified teaching model, not a substitute for a measured CCT/TTT diagram.
+    </p>
+  </div>
+
+  <div class="panel">
+    <canvas id="chart"></canvas>
+  </div>
+</div>
+
+<div class="footer-note">
+  QuenchLab — companion project to Alloy Atlas. The same phase-fraction model backing this
+  page is implemented in <code>quenchlab_analysis.py</code> for batch analysis and CCT-style plotting.
+</div>
+
+<script>
+const ALLOYS = [
+  {id:"AISI1020", name:"AISI 1020 (Plain Carbon)", category:"Low-Carbon Steel", ccr:180, HRC:{martensite:42, bainite:32, pearlite:18, ferrite:10}},
+  {id:"AISI1045", name:"AISI 1045 (Medium Carbon)", category:"Medium-Carbon Steel", ccr:90, HRC:{martensite:55, bainite:38, pearlite:22, ferrite:12}},
+  {id:"AISI1080", name:"AISI 1080 (High Carbon)", category:"High-Carbon Steel", ccr:45, HRC:{martensite:64, bainite:42, pearlite:26, ferrite:14}},
+  {id:"AISI4130", name:"AISI 4130 (Cr-Mo)", category:"Low-Alloy Steel", ccr:18, HRC:{martensite:50, bainite:36, pearlite:20, ferrite:11}},
+  {id:"AISI4140", name:"AISI 4140 (Cr-Mo)", category:"Low-Alloy Steel", ccr:12, HRC:{martensite:56, bainite:40, pearlite:23, ferrite:12}},
+  {id:"AISI4340", name:"AISI 4340 (Ni-Cr-Mo)", category:"Low-Alloy Steel", ccr:4, HRC:{martensite:58, bainite:42, pearlite:24, ferrite:12}},
+  {id:"AISI52100", name:"AISI 52100 (Bearing Steel)", category:"High-Alloy Tool Steel", ccr:6, HRC:{martensite:66, bainite:45, pearlite:28, ferrite:15}},
+  {id:"AISID2", name:"AISI D2 (Tool Steel)", category:"Tool Steel", ccr:2, HRC:{martensite:65, bainite:48, pearlite:30, ferrite:16}},
+  {id:"AISI316", name:"AISI 316 (Austenitic SS)", category:"Stainless Steel", ccr:500, HRC:{martensite:28, bainite:26, pearlite:20, ferrite:15}},
+  {id:"Ti64", name:"Ti-6Al-4V", category:"Titanium Alloy", ccr:60, HRC:{martensite:42, bainite:38, pearlite:32, ferrite:28}},
+];
+
+const PHASE_OFFSET = {martensite:1, bainite:1/6, pearlite:1/30, ferrite:1/150};
+const PHASE_COLOR = {martensite:"var(--martensite)", bainite:"var(--bainite)", pearlite:"var(--pearlite)", ferrite:"var(--ferrite)"};
+const SIGMA = 0.55;
+
+function phaseFractions(coolingRate, ccr){
+  const logCR = Math.log10(coolingRate);
+  const affinities = {};
+  let total = 0;
+  for (const phase in PHASE_OFFSET){
+    const center = Math.log10(ccr * PHASE_OFFSET[phase]);
+    const a = Math.exp(-0.5 * Math.pow((logCR - center) / SIGMA, 2));
+    affinities[phase] = a;
+    total += a;
+  }
+  for (const phase in affinities) affinities[phase] /= total;
+  return affinities;
+}
+
+function predictedHardness(alloy, coolingRate){
+  const fracs = phaseFractions(coolingRate, alloy.ccr);
+  let h = 0;
+  for (const phase in fracs) h += fracs[phase] * alloy.HRC[phase];
+  return {hardness: h, fractions: fracs};
+}
+
+function buildCurve(alloy){
+  const pts = [];
+  for (let l = -1; l <= 3.3; l += 0.05){
+    const cr = Math.pow(10, l);
+    pts.push({x: cr, y: predictedHardness(alloy, cr).hardness});
+  }
+  return pts;
+}
+
+// --- UI wiring ---
+const select = document.getElementById("alloySelect");
+ALLOYS.forEach(a => {
+  const opt = document.createElement("option");
+  opt.value = a.id; opt.textContent = a.name;
+  select.appendChild(opt);
+});
+
+const slider = document.getElementById("rateSlider");
+const rateValueEl = document.getElementById("rateValue");
+const hardnessValueEl = document.getElementById("hardnessValue");
+const phaseBarsEl = document.getElementById("phaseBars");
+
+let chart;
+
+function currentAlloy(){
+  return ALLOYS.find(a => a.id === select.value);
+}
+
+function currentRate(){
+  return Math.pow(10, parseFloat(slider.value));
+}
+
+function renderPhaseBars(fractions){
+  phaseBarsEl.innerHTML = "";
+  const order = ["martensite","bainite","pearlite","ferrite"];
+  order.forEach(phase => {
+    const pct = Math.round(fractions[phase] * 100);
+    const row = document.createElement("div");
+    row.className = "phase-row";
+    row.innerHTML = `
+      <div class="swatch" style="background:${PHASE_COLOR[phase]}"></div>
+      <div class="phase-name">${phase[0].toUpperCase()+phase.slice(1)}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${pct}%; background:${PHASE_COLOR[phase]}"></div></div>
+      <div class="phase-pct">${pct}%</div>
+    `;
+    phaseBarsEl.appendChild(row);
+  });
+}
+
+function update(){
+  const alloy = currentAlloy();
+  const rate = currentRate();
+  rateValueEl.textContent = rate < 10 ? rate.toFixed(1) : Math.round(rate);
+
+  const {hardness, fractions} = predictedHardness(alloy, rate);
+  hardnessValueEl.textContent = hardness.toFixed(1);
+  renderPhaseBars(fractions);
+
+  const curve = buildCurve(alloy);
+  chart.data.datasets[0].data = curve;
+  chart.data.datasets[1].data = [{x: rate, y: hardness}];
+  chart.options.plugins.title.text = `${alloy.name} — hardness vs cooling rate (log scale)`;
+  chart.update();
+}
+
+function initChart(){
+  const ctx = document.getElementById("chart").getContext("2d");
+  chart = new Chart(ctx, {
+    type: "line",
+    data: {
+      datasets: [
+        {
+          label: "Predicted hardness",
+          data: [],
+          borderColor: "#ff7a45",
+          backgroundColor: "rgba(255,122,69,0.08)",
+          borderWidth: 2.5,
+          pointRadius: 0,
+          tension: 0.25,
+          fill: true,
+        },
+        {
+          label: "Current setting",
+          data: [],
+          type: "scatter",
+          backgroundColor: "#e7ecef",
+          borderColor: "#14181c",
+          borderWidth: 2,
+          pointRadius: 7,
+          showLine: false,
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      scales: {
+        x: {
+          type: "logarithmic",
+          title: {display:true, text:"Cooling rate (K/s)", color:"#8b96a1"},
+          ticks: {color:"#8b96a1"},
+          grid: {color:"#2b3238"}
+        },
+        y: {
+          min: 0, max: 70,
+          title: {display:true, text:"Hardness (HRC)", color:"#8b96a1"},
+          ticks: {color:"#8b96a1"},
+          grid: {color:"#2b3238"}
+        }
+      },
+      plugins: {
+        legend: {labels:{color:"#e7ecef"}},
+        title: {display:true, color:"#e7ecef", font:{size:14}, text:""}
+      }
+    }
+  });
+}
+
+select.value = "AISI4340";
+slider.addEventListener("input", update);
+select.addEventListener("change", update);
+document.querySelectorAll(".preset-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    slider.value = Math.log10(parseFloat(btn.dataset.rate));
+    update();
+  });
+});
+
+initChart();
+update();
+</script>
+</body>
+</html>

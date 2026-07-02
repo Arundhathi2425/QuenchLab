@@ -1,0 +1,11 @@
+alloy_id,alloy_name,category,carbon_pct,alloy_index,critical_cooling_rate_Ks,martensite_HRC,bainite_HRC,pearlite_HRC,ferrite_HRC
+AISI1020,AISI 1020 (Plain Carbon),Low-Carbon Steel,0.20,1.0,180,42,32,18,10
+AISI1045,AISI 1045 (Medium Carbon),Medium-Carbon Steel,0.45,1.1,90,55,38,22,12
+AISI1080,AISI 1080 (High Carbon),High-Carbon Steel,0.80,1.2,45,64,42,26,14
+AISI4130,AISI 4130 (Cr-Mo),Low-Alloy Steel,0.30,2.4,18,50,36,20,11
+AISI4140,AISI 4140 (Cr-Mo),Low-Alloy Steel,0.40,2.6,12,56,40,23,12
+AISI4340,AISI 4340 (Ni-Cr-Mo),Low-Alloy Steel,0.40,4.5,4,58,42,24,12
+AISI52100,AISI 52100 (Bearing Steel),High-Alloy Tool Steel,1.00,3.8,6,66,45,28,15
+AISI D2,AISI D2 (Tool Steel),Tool Steel,1.50,5.2,2,65,48,30,16
+AISI 316,AISI 316 (Austenitic SS),Stainless Steel,0.08,3.0,500,28,26,20,15
+Ti-6Al-4V,Ti-6Al-4V,Titanium Alloy,0.00,2.0,60,42,38,32,28

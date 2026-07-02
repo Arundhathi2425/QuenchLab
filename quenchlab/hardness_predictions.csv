@@ -1,0 +1,11 @@
+alloy,category,Furnace cool (~1 K/s),Air cool (~10 K/s),Oil quench (~80 K/s),Water quench (~400 K/s)
+AISI 1020 (Plain Carbon),Low-Carbon Steel,12.6,22.9,35.8,40.6
+AISI 1045 (Medium Carbon),Medium-Carbon Steel,17.6,33.5,49.3,53.9
+AISI 1080 (High Carbon),High-Carbon Steel,24.6,44.8,60.2,63.3
+AISI 4130 (Cr-Mo),Low-Alloy Steel,25.7,42.9,49.1,49.8
+AISI 4140 (Cr-Mo),Low-Alloy Steel,32.4,50.3,55.3,55.9
+AISI 4340 (Ni-Cr-Mo),Low-Alloy Steel,43.8,56.0,57.8,58.0
+AISI 52100 (Bearing Steel),High-Alloy Tool Steel,44.4,62.1,65.6,65.9
+AISI D2 (Tool Steel),Tool Steel,55.7,64.0,64.9,65.0
+AISI 316 (Austenitic SS),Stainless Steel,15.6,19.0,24.6,27.1
+Ti-6Al-4V,Titanium Alloy,31.0,37.1,41.1,41.8
